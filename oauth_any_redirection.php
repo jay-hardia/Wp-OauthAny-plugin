@@ -9,7 +9,7 @@ function  check_get_param() {
 
   if(array_key_exists($action_variable, $_GET)) {
     oauth_any_init($action_variable);
-  } else if(array_key_exists('code', $_GET) && array_key_exists('oauth_token', $_GET) ) {
+  } else if(array_key_exists('code', $_GET) ) {
     oauth_any_get_access_token();
   }
 }
@@ -38,14 +38,15 @@ function oauth_any_get_access_token() {
   $oauth_url           = get_option('oauth_any_oauth_url');  
 
   $post_data = array( 
-    'oauth_token'        => get_option('oauth_any_consumer_key'), 
-    'oauth_token_secret' => get_option('oauth_any_consumer_secret_key'),
-    'code'               => $_GET['code'],
-    'redirect_uri'       => get_site_url()
+    'client_id'     => get_option('oauth_any_consumer_key'), 
+    'client_secret' => get_option('oauth_any_consumer_secret_key'),
+    'code'          => $_GET['code'],
+    'redirect_uri'  => get_site_url(),
+    'grant_type'    => 'authorization_code'
   );
-  
+
   $output =  curl_request($oauth_url, 'POST', $post_data);
-  
+
   oauth_any_custom_login_via_rails($output['access_token']);
 }
 
@@ -54,25 +55,25 @@ function oauth_any_custom_login_via_rails($access_token) {
 
   $url = "{$user_api}?access_token={$access_token}";
   $output =  curl_request($url);
-  
+
   if(array_key_exists('email', $output)) {
 
     $password = ( array_key_exists('password', $output)) ? $output['password'] : PASSWORD;
     
-    if(!username_exists( $output['user_name'] ) ) {     
-      $new_user_id = wp_create_user($output['user_name'], $password, $output['email']);
+    if(!username_exists( $output['username'] ) ) {     
+      $new_user_id = wp_create_user($output['username'], $password, $output['email']);
     }
 
-
     $login_data = array(
-        'user_login'    => $output['user_name'],
+        'user_login'    => $output['username'],
         'user_password' => $password,
         'remember'      => 0
         );
       
       $user_verify = wp_signon( $login_data, false );
 
-      header("Refresh:0");
+
+      wp_redirect(  get_site_url() );
 
   } else {
     echo '<script> console.log("INVALID ACCESS TOKEN"); </script>';
